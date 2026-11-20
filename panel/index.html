@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>IA Lab PC · Chat NVIDIA</title>
+  <link rel="stylesheet" href="/estilo.css">
+  <script type="module" src="/chat.js"></script>
+</head>
+<body>
+  <div class="app" inert>
+    <aside class="sidebar" id="sidebar" aria-label="Conversaciones">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">IA</span>
+        <span>IA Lab PC</span>
+      </div>
+      <button class="new" id="new-chat" type="button"><span aria-hidden="true">+</span> Nuevo chat</button>
+      <nav id="chats" aria-label="Chats de esta sesión"></nav>
+      <div class="sidebar-end">
+        <span id="usage" class="usage" title="Consumo de esta sesión. El cupo lo administra NVIDIA Build."></span>
+        <button class="quiet" id="reconnect-nvidia" type="button" hidden>Conectar NVIDIA</button>
+        <button class="quiet" id="disconnect" type="button" hidden>Cerrar sesión</button>
+        <p class="trial-note">Para evaluación interna con datos ficticios.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="top">
+        <div class="top-left">
+          <button class="menu quiet" id="menu" aria-label="Mostrar conversaciones" aria-controls="sidebar" aria-expanded="false" type="button">☰</button>
+          <div><div class="top-title" id="title">Nuevo chat</div><div class="model">Nemotron 3 Ultra</div></div>
+        </div>
+        <nav class="panel-tabs" aria-label="Herramientas de IA Lab PC">
+          <button type="button" class="quiet" data-view="chat" aria-pressed="true">Chat</button>
+          <button type="button" class="quiet" data-view="image" aria-pressed="false">Imágenes</button>
+          <button type="button" class="quiet" data-view="code" aria-pressed="false">Código</button>
+          <button type="button" class="quiet" data-view="reels" aria-pressed="false">Reels</button>
+        </nav>
+        <span id="panel-provider" class="provider"><span class="light"></span><span id="provider-name">NVIDIA</span></span>
+      </header>
+
+      <div class="viewport" id="viewport">
+        <div class="thread" id="thread" aria-label="Mensajes"></div>
+      </div>
+
+      <section class="compose-area" id="compose-area">
+        <div id="notice" class="notice" role="status" hidden></div>
+        <form id="composer" class="composer">
+          <label class="sr-only" for="message">Mensaje</label>
+          <textarea id="message" placeholder="Escribe tu mensaje…" rows="2"></textarea>
+          <div class="actions">
+            <span class="hint">Enter para enviar · Shift + Enter para nueva línea</span>
+            <button id="send" class="primary" type="submit">Enviar <span aria-hidden="true">↑</span></button>
+            <button id="stop" class="secondary" type="button" hidden>Detener</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="image-view" class="workspace" aria-labelledby="images-title" hidden>
+        <div class="workspace-inner">
+          <h1 id="images-title">Imágenes</h1>
+          <p class="workspace-detail">Describe una imagen nueva o adjunta una para editarla.</p>
+          <details id="image-connection" class="workspace-settings">
+            <summary>Conectar Cloudflare Workers AI</summary>
+            <form id="image-credentials" class="workspace-form" autocomplete="off">
+              <label for="cloudflare-account">ID de cuenta</label>
+              <input id="cloudflare-account" required maxlength="32" spellcheck="false" autocomplete="off">
+              <label for="cloudflare-token">Token de Workers AI</label>
+              <input id="cloudflare-token" type="password" required maxlength="256" spellcheck="false" autocomplete="off">
+              <button class="secondary" type="submit">Conectar</button>
+              <span class="setup-hint">Workers Free tiene un cupo diario compartido. Una cuenta de pago puede facturar el excedente.</span>
+            </form>
+          </details>
+          <form id="image-form" class="workspace-form">
+            <label for="image-prompt">Descripción o cambios</label>
+            <textarea id="image-prompt" rows="3" maxlength="16000" placeholder="Un robot de cerámica azul junto a una ventana…" required></textarea>
+            <label for="image-file">Imagen de referencia opcional</label>
+            <input id="image-file" type="file" accept="image/png,image/jpeg,image/webp">
+            <button id="image-submit" type="submit" class="primary">Generar imagen</button>
+          </form>
+          <p id="image-status" class="workspace-status" role="status"></p>
+          <figure id="image-output" class="image-output" hidden>
+            <img id="image-preview" alt="Resultado generado por FLUX">
+            <figcaption>
+              <a id="image-save" class="secondary" download>Descargar</a>
+              <button id="image-reuse" class="secondary" type="button">Editar esta imagen</button>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="code-view" class="workspace" aria-labelledby="code-title" hidden>
+        <div class="workspace-inner">
+          <h1 id="code-title">Código</h1>
+          <p class="workspace-detail">Pide una función, pruebas o una explicación de un fragmento.</p>
+          <p id="code-availability" class="workspace-detail" hidden></p>
+          <details id="code-bridge" class="workspace-settings" hidden>
+            <summary>Conectar con Codex</summary>
+            <p id="code-bridge-state" class="setup-hint" aria-live="polite"></p>
+            <button id="code-bridge-toggle" type="button" class="secondary">Habilitar Codex</button>
+            <p id="code-bridge-error" class="setup-hint" role="status" hidden></p>
+          </details>
+          <form id="code-form" class="workspace-form">
+            <label for="code-provider">Ruta</label>
+            <select id="code-provider">
+              <option value="auto">Elegir según el encargo</option>
+              <option value="opencode">OpenCode + NVIDIA · texto</option>
+              <option value="codex">Codex · tu cuenta</option>
+            </select>
+            <label for="code-prompt">Encargo</label>
+            <textarea id="code-prompt" rows="4" maxlength="16000" placeholder="Escribe una función que…" required></textarea>
+            <fieldset id="code-route-fields" class="code-route-fields" hidden>
+              <legend>Condiciones del encargo</legend>
+              <label for="code-scope">Alcance</label>
+              <select id="code-scope">
+                <option value="">Elige el alcance</option>
+                <option value="aislado">Una función o un archivo</option>
+                <option value="multiarchivo">Varios archivos o un proyecto</option>
+              </select>
+              <label for="code-data">Datos</label>
+              <select id="code-data">
+                <option value="">Elige el tipo de datos</option>
+                <option value="ficticios">Ficticios</option>
+                <option value="reales">Reales o sensibles</option>
+              </select>
+              <label for="code-proof">Comprobación esperada</label>
+              <input id="code-proof" maxlength="500" placeholder="Ej. sumar(2, 3) devuelve 5">
+              <p id="code-route-hint" class="setup-hint" aria-live="polite"></p>
+            </fieldset>
+            <label class="workspace-check" id="code-confirm-row" hidden>
+              <input id="code-confirm" type="checkbox"> Usar la cuota de mi cuenta de Codex en esta consulta
+            </label>
+            <button id="code-submit" type="submit" class="primary">Consultar</button>
+          </form>
+          <p id="code-status" class="workspace-status" role="status"></p>
+          <pre id="code-answer" class="workspace-answer" hidden></pre>
+          <button id="code-copy" class="secondary" type="button" hidden>Copiar respuesta</button>
+        </div>
+      </section>
+
+      <section id="reels-view" class="workspace" aria-labelledby="reels-title" hidden>
+        <div class="workspace-inner">
+          <h1 id="reels-title">Reels</h1>
+          <p class="workspace-detail">Monta hasta cuatro escenas verticales y descarga el video, el guion y el storyboard.</p>
+          <form id="reel-form" class="workspace-form">
+            <fieldset class="reel-fields">
+              <label for="reel-title">Título de apertura</label>
+              <input id="reel-title" maxlength="60" required>
+              <label for="reel-files">Imágenes de las escenas</label>
+              <input id="reel-files" type="file" accept="image/jpeg,image/png,image/webp" multiple required aria-describedby="reel-hint">
+              <span class="setup-hint" id="reel-hint">De una a cuatro imágenes. Puedes cambiar su orden y asignar de 3 a 12 segundos a cada una.</span>
+              <ol id="reel-scenes" class="reel-scenes" aria-label="Orden del montaje"></ol>
+            </fieldset>
+            <button id="reel-submit" type="submit" class="primary">Crear MP4</button>
+          </form>
+          <p id="reel-status" class="workspace-status" role="status"></p>
+          <figure id="reel-result" class="image-output" hidden>
+            <video id="reel-video" controls playsinline aria-label="Vista previa del Reel"></video>
+            <figcaption>
+              <a id="reel-download" class="secondary" download="ia-lab-reel.mp4">Descargar MP4</a>
+              <a id="reel-script" class="secondary" download="ia-lab-guion-claude.txt">Descargar guion para Claude</a>
+              <a id="reel-storyboard" class="secondary" download="ia-lab-storyboard.jpg">Descargar storyboard</a>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="delete-dialog" id="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-note">
+    <form method="dialog">
+      <h2 id="delete-title">¿Eliminar este chat?</h2>
+      <p id="delete-name" class="delete-name"></p>
+      <p id="delete-note">Se quitarán sus mensajes de esta sesión.</p>
+      <div class="dialog-actions">
+        <button class="secondary" value="cancel" autofocus>Cancelar</button>
+        <button class="danger" value="delete">Eliminar chat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="overlay" id="login">
+    <section class="login-card" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <span class="mark login-mark" aria-hidden="true">IA</span>
+      <h1 id="login-title">IA Lab PC</h1>
+      <p>Conecta NVIDIA Build para usar Nemotron en el panel.</p>
+      <form id="key-form" autocomplete="off">
+        <label for="key">Clave NVIDIA</label>
+        <input id="key" type="password" placeholder="Pega tu clave" autocomplete="off" spellcheck="false" maxlength="512" required>
+        <p id="key-error" class="login-error" role="alert" hidden></p>
+        <button id="connect" class="primary" type="submit">Abrir chat <span aria-hidden="true">→</span></button>
+      </form>
+      <button id="enter-panel" class="quiet" type="button">Entrar sin conectar NVIDIA</button>
+      <p class="login-note">La clave se conserva durante esta sesión.</p>
+    </section>
+  </div>
+</body>
+</html>

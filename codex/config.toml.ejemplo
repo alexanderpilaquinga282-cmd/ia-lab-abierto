@@ -1,0 +1,6 @@
+# Copia este bloque a .codex/config.toml DENTRO de tu clon de ia-lab-abierto (no en ~/.codex),
+# así la herramienta NVIDIA solo existe cuando Codex trabaja en esta carpeta.
+# Cambia <RUTA_DEL_REPO> por la ruta absoluta de tu clon. instalar.ps1 lo hace por ti.
+[mcp_servers.ia_lab_nvidia]
+command = 'node'
+args = ['<RUTA_DEL_REPO>\panel\mcp-codex.mjs']

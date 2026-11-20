@@ -1,0 +1,6 @@
+# Temas que NUNCA deben ir al modelo gratuito. Uno por línea. Copia este archivo como
+# config/temas-privados.txt (queda fuera de Git) y escribe los tuyos: nombres de clientes,
+# proyectos privados, tu negocio... El enrutador los manda a Codex o los bloquea.
+# Ejemplos:
+# Mi Empresa SAS
+# Proyecto Delta

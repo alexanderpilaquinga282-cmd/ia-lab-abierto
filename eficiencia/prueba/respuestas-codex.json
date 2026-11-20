@@ -1,0 +1,68 @@
+[
+  {
+    "id": "sku",
+    "ok": true,
+    "seconds": 6.192,
+    "usage": {
+      "input": 13106,
+      "cachedInput": 10112,
+      "output": 69
+    },
+    "answer": "```javascript\nfunction normalizarSKU(s) {\n  if (typeof s !== \"string\") {\n    return null;\n  }\n\n  const codigo = s.trim();\n  return /^[A-Za-z]{2}-[0-9]{3}$/.test(codigo) ? codigo.toUpperCase() : null;\n}\n```"
+  },
+  {
+    "id": "bisiesto",
+    "ok": true,
+    "seconds": 4.994,
+    "usage": {
+      "input": 13117,
+      "cachedInput": 10112,
+      "output": 71
+    },
+    "answer": "```javascript\nfunction esBisiesto(y) {\n  if (!Number.isInteger(y) || y < 1 || y > 9999) {\n    return null;\n  }\n\n  return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);\n}\n```"
+  },
+  {
+    "id": "versiones",
+    "ok": true,
+    "seconds": 4.825,
+    "usage": {
+      "input": 13105,
+      "cachedInput": 0,
+      "output": 72
+    },
+    "answer": "```javascript\nfunction ultimasVersiones(registros) {\n  const versiones = new Map();\n\n  for (const [id, version] of registros) {\n    if (!versiones.has(id) || version > versiones.get(id)) {\n      versiones.set(id, version);\n    }\n  }\n\n  return Array.from(versiones);\n}\n```"
+  },
+  {
+    "id": "faltantes",
+    "ok": true,
+    "seconds": 6.514,
+    "usage": {
+      "input": 11827,
+      "cachedInput": 10112,
+      "output": 139
+    },
+    "answer": "```javascript\nfunction rangoFaltante(ids, lo, hi) {\n  const presentes = ids\n    .filter(id => id >= lo && id <= hi)\n    .sort((a, b) => a - b);\n\n  const faltantes = [];\n  let inicio = lo;\n\n  for (const id of presentes) {\n    if (id < inicio) continue;\n\n    if (id > inicio) {\n      faltantes.push([inicio, id - 1]);\n    }\n    inicio = id + 1;\n  }\n\n  if (inicio <= hi) {\n    faltantes.push([inicio, hi]);\n  }\n\n  return faltantes;\n}\n```"
+  },
+  {
+    "id": "csv",
+    "ok": true,
+    "seconds": 11.918,
+    "usage": {
+      "input": 13138,
+      "cachedInput": 0,
+      "output": 337
+    },
+    "answer": "```javascript\nfunction leerRegistro(s) {\n  const campos = [];\n  let i = 0;\n\n  while (true) {\n    let campo = \"\";\n\n    if (s[i] === '\"') {\n      i++;\n\n      while (true) {\n        if (i === s.length) return null;\n\n        if (s[i] !== '\"') {\n          campo += s[i++];\n        } else if (s[i + 1] === '\"') {\n          campo += '\"';\n          i += 2;\n        } else {\n          i++;\n          break;\n        }\n      }\n    } else {\n      const inicio = i;\n\n      while (i < s.length && s[i] !== \",\") {\n        if (s[i] === '\"') return null;\n        i++;\n      }\n\n      campo = s.slice(inicio, i);\n    }\n\n    campos.push(campo);\n    if (i === s.length) return campos;\n    if (s[i] !== \",\") return null;\n    i++;\n  }\n}\n```"
+  },
+  {
+    "id": "beneficio",
+    "ok": true,
+    "seconds": 8.075,
+    "usage": {
+      "input": 12076,
+      "cachedInput": 0,
+      "output": 207
+    },
+    "answer": "```javascript\nfunction beneficioMaximo(trabajos) {\n  const ordenados = trabajos.slice().sort((a, b) => a[1] - b[1]);\n  const dp = new Array(ordenados.length + 1).fill(0);\n\n  for (let i = 0; i < ordenados.length; i++) {\n    const [inicio, , puntos] = ordenados[i];\n    let izquierda = 0;\n    let derecha = i;\n\n    // Busca cuántos trabajos anteriores terminan a tiempo.\n    while (izquierda < derecha) {\n      const medio = Math.floor((izquierda + derecha) / 2);\n      if (ordenados[medio][1] <= inicio) {\n        izquierda = medio + 1;\n      } else {\n        derecha = medio;\n      }\n    }\n\n    dp[i + 1] = Math.max(dp[i], puntos + dp[izquierda]);\n  }\n\n  return dp[ordenados.length];\n}\n```"
+  }
+]

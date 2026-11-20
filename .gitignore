@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.venv/
+.local/
+node_modules/
+eficiencia/resultados/privados/
+*.log
+*.lock
+config/temas-privados.txt
+.codex/
+nodos/*/privado/
