@@ -4,13 +4,17 @@
 // proponente nunca vio. Cada ganadora se guarda como propuesta para revisión
 // humana. No instala nada, no escribe fuera de bucle/ y usa solo datos sintéticos.
 //
-//   node mejorar.mjs [--generaciones 1] [--candidatas 3] [--repeticiones 3]
-//                    [--maximo-consultas 150]
+//   node mejorar.mjs [--bateria codigo|largos] [--generaciones 1] [--candidatas 3]
+//                    [--repeticiones 3] [--maximo-consultas 150]
+//
+// Cada batería guarda su estado aparte: bucle/ (código) y bucle-largos/ (largos).
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { casos as casosEntrenamiento } from './banco/casos.mjs';
 import { casosReserva } from './banco/reserva.mjs';
+import { casosReservaLargos } from './banco/reserva-largos.mjs';
+import { casosLargos } from './casos-largos.mjs';
 import { consultar, endpoint, evaluarCasos, MODELO } from './correr.mjs';
 
 // Criterios congelados el 18/11/2026, antes de la primera corrida del bucle.
@@ -20,8 +24,32 @@ export const CRITERIO = {
   largoMaximo: 1200, // caracteres de la skill
 };
 
-const CARPETA = new URL('bucle/', import.meta.url);
-const NOMBRES_ENTRENAMIENTO = casosEntrenamiento.flatMap(c => [c.id, c.nombre]);
+// Por batería: casos de entrenamiento, casos de reserva (nunca se muestran al
+// proponente), carpeta de estado, palabras que una skill no puede nombrar
+// (sería aprenderse el examen) y cómo se le describe la tarea al proponente.
+// La batería "largos" se agregó el 19/11/2026 con los mismos criterios.
+export const BATERIAS = {
+  codigo: {
+    entrenamiento: casosEntrenamiento,
+    reserva: casosReserva,
+    carpeta: 'bucle/',
+    prohibidas: casosEntrenamiento.flatMap(c => [c.id, c.nombre]),
+    tarea: 'un modelo que escribe funciones JavaScript',
+    general: 'cualquier encargo de programación',
+    nota: 'Cada encargo ya pide "solo la declaración de la función en un bloque JavaScript".',
+  },
+  largos: {
+    entrenamiento: casosLargos,
+    reserva: casosReservaLargos,
+    carpeta: 'bucle-largos/',
+    prohibidas: [...casosLargos.map(c => c.id), 'devuelto', 'devueltos', 'mayorDevuelto',
+      ...casosLargos.flatMap(c => Object.values(c.esperado).flat().map(String))],
+    tarea: 'un modelo que lee salidas largas de herramientas (logs, JSON, CSV, reportes) y responde con un objeto JSON exacto',
+    general: 'cualquier tarea de buscar, contar o agregar datos en una salida larga',
+    nota: 'Cada encargo ya pide "responde solo con un objeto JSON" y dice qué campos lleva. Los datos llegan como resultado de una herramienta. Contar mal es el fallo típico.',
+  },
+};
+const escapar = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export function medir(filas) {
   const ok = filas.filter(f => !f.error);
@@ -69,19 +97,19 @@ export function supera(campeona, candidata, criterio = CRITERIO) {
 
 // La skill propuesta es datos: se limpia, se limita y se rechaza si nombra los
 // casos de entrenamiento (eso sería aprenderse el examen) o trae una clave.
-export function limpiarPropuesta(texto, criterio = CRITERIO) {
+export function limpiarPropuesta(texto, criterio = CRITERIO, prohibidas = BATERIAS.codigo.prohibidas) {
   const m = /<skill>([\s\S]*?)<\/skill>/i.exec(texto ?? '');
   if (!m) return { error: 'sin etiquetas <skill>' };
   const skill = m[1].trim();
   if (!skill) return { error: 'vacía' };
   if (skill.length > criterio.largoMaximo) return { error: `muy larga (${skill.length} caracteres)` };
   if (/nvapi-|https?:\/\//i.test(skill)) return { error: 'contiene una clave o un enlace' };
-  const nombrado = NOMBRES_ENTRENAMIENTO.find(n => new RegExp('\\b' + n + '\\b', 'i').test(skill));
+  const nombrado = prohibidas.find(n => new RegExp('(^|[^\\p{L}\\p{N}_-])' + escapar(n) + '($|[^\\p{L}\\p{N}_-])', 'iu').test(skill));
   if (nombrado) return { error: `nombra un caso de entrenamiento (${nombrado})` };
   return { skill };
 }
 
-function pedidoPropuesta(campeona, intentos) {
+function pedidoPropuesta(campeona, intentos, b) {
   const casos = Object.entries(campeona.entrenamiento.porCaso)
     .map(([, p], i) => `- encargo ${i + 1} (${p.nivel}): ${p.aprobadas}/${p.intentos} aprobadas, ${p.total} tokens${p.motivos.length ? ', falla por: ' + p.motivos.join(', ') : ''}`)
     .join('\n');
@@ -89,22 +117,26 @@ function pedidoPropuesta(campeona, intentos) {
   return [
     {
       role: 'system',
-      content: 'Mejoras instrucciones de sistema para un modelo que escribe funciones JavaScript. ' +
+      content: `Mejoras instrucciones de sistema para ${b.tarea}. ` +
         'El objetivo es aprobar más pruebas y gastar menos tokens en total (entrada + salida). Cada palabra de la instrucción se paga en cada consulta. ' +
-        'Escribe reglas generales que sirvan para cualquier encargo de programación, sin mencionar encargos concretos. ' +
+        `Escribe reglas generales que sirvan para ${b.general}, sin mencionar encargos concretos. ` +
         `Responde solo con la instrucción nueva entre <skill> y </skill>, en menos de ${CRITERIO.largoMaximo} caracteres.`,
     },
     {
       role: 'user',
       content: `Instrucción actual:\n<skill>${campeona.texto || '(vacía: el modelo no recibe instrucción de sistema)'}</skill>\n\n` +
         `Resultados con la instrucción actual (${campeona.entrenamiento.total} tokens promedio por consulta):\n${casos}\n\n` +
-        `Cada encargo ya pide "solo la declaración de la función en un bloque JavaScript".\n\n` +
+        `${b.nota}\n\n` +
         `Intentos anteriores que no ganaron:\n${previos}\n\nPropón una instrucción distinta y mejor.`,
     },
   ];
 }
 
-export async function mejorar({ generaciones = 1, candidatas = 3, repeticiones = 3, maximoConsultas = 150, pausaMs = 1500, env = process.env, log = console.log, carpeta = CARPETA }) {
+export async function mejorar({ bateria = 'codigo', generaciones = 1, candidatas = 3, repeticiones = 3, maximoConsultas = 150, pausaMs = 1500, env = process.env, log = console.log, carpeta }) {
+  const b = BATERIAS[bateria];
+  if (!b) throw new Error('Batería inválida. Usa: ' + Object.keys(BATERIAS).join(', '));
+  carpeta ??= new URL(b.carpeta, import.meta.url);
+  const { entrenamiento: casosEntrenamiento, reserva: casosReserva } = b;
   const clave = env.NVIDIA_API_KEY;
   if (!clave) throw new Error('Falta NVIDIA_API_KEY en esta terminal.');
   const url = endpoint(env);
@@ -116,7 +148,7 @@ export async function mejorar({ generaciones = 1, candidatas = 3, repeticiones =
   const porMedicion = (casosEntrenamiento.length + casosReserva.length) * repeticiones;
   const previstas = (campeona ? 0 : porMedicion) + generaciones * (candidatas * (1 + casosEntrenamiento.length * repeticiones) + casosReserva.length * repeticiones);
   if (previstas > maximoConsultas) throw new Error(`Esta corrida haría hasta ${previstas} consultas y el máximo es ${maximoConsultas}. Baja --generaciones o --candidatas, o sube --maximo-consultas.`);
-  log(`Hasta ${previstas} consultas a ${MODELO}.`);
+  log(`Batería ${bateria}: hasta ${previstas} consultas a ${MODELO}.`);
 
   const opciones = { repeticiones, pausaMs, env, log };
   if (!campeona) {
@@ -136,9 +168,9 @@ export async function mejorar({ generaciones = 1, candidatas = 3, repeticiones =
   for (let g = 1; g <= generaciones; g++) {
     const medidas = [];
     for (let k = 1; k <= candidatas; k++) {
-      const r = await consultar(url, clave, pedidoPropuesta(campeona, intentos), false, { temperatura: 0.8, maxTokens: 700 }).catch(e => ({ error: e.message }));
+      const r = await consultar(url, clave, pedidoPropuesta(campeona, intentos, b), false, { temperatura: 0.8, maxTokens: 700 }).catch(e => ({ error: e.message }));
       if (r.error === 'HTTP 401' || r.error === 'HTTP 403') throw new Error(`NVIDIA rechazó la clave (${r.error}).`);
-      const p = r.error ? { error: r.error } : limpiarPropuesta(r.texto);
+      const p = r.error ? { error: r.error } : limpiarPropuesta(r.texto, CRITERIO, b.prohibidas);
       if (p.error) { log(`g${g} candidata ${k}: descartada antes de medir (${p.error})`); continue; }
       const entrenamiento = medir(await evaluarCasos({ ...opciones, lista: casosEntrenamiento, sistema: p.skill, etiqueta: `g${g}c${k}` }));
       const v = supera(campeona.entrenamiento, entrenamiento);
@@ -157,20 +189,21 @@ export async function mejorar({ generaciones = 1, candidatas = 3, repeticiones =
     ganadoras.push(campeona);
     await writeFile(new URL('campeona.json', carpeta), JSON.stringify(campeona, null, 2));
     const nombre = campeona.fecha.slice(0, 16).replace(/[:T]/g, '-') + '-g' + g + '.md';
-    await writeFile(new URL('propuestas/' + nombre, carpeta), propuestaMarkdown(campeona, inicial));
-    log('Propuesta guardada en bucle/propuestas/' + nombre);
+    await writeFile(new URL('propuestas/' + nombre, carpeta), propuestaMarkdown(campeona, inicial, bateria, casosReserva.length));
+    log(`Propuesta guardada en ${b.carpeta}propuestas/${nombre}`);
   }
   await writeFile(new URL('intentos.json', carpeta), JSON.stringify(intentos, null, 2));
   await appendFile(new URL('historial.md', carpeta), `- ${new Date().toISOString()}: ${generaciones} generación(es), ${ganadoras.length} ganadora(s). Campeona: ${campeona.origen}, ${campeona.entrenamiento.total} tokens, ${campeona.entrenamiento.aprobadas}/${campeona.entrenamiento.intentos} entrenamiento, ${campeona.reserva.aprobadas}/${campeona.reserva.intentos} reserva.\n`);
   return { campeona, ganadoras };
 }
 
-function propuestaMarkdown(c, inicial) {
+function propuestaMarkdown(c, inicial, bateria, nReserva) {
   const fila = (n, m, b) => `| ${n} | ${m.aprobadas}/${m.intentos} | ${m.total} | ${b.aprobadas}/${b.intentos} | ${b.total} |`;
   return `---
 tipo: propuesta de skill
 estado: pendiente de revisión
 origen: ${c.origen}
+bateria: ${bateria}
 fecha: ${c.fecha}
 modelo: ${MODELO}
 ---
@@ -191,13 +224,14 @@ ${c.texto}
 ${fila('Sin skill', inicial.entrenamiento, inicial.reserva)}
 ${fila('Esta propuesta', c.entrenamiento, c.reserva)}
 
-Reserva = 6 encargos que el modelo que propone nunca vio. Medido con ${MODELO}; con Codex o Claude hay que volver a medir.
+Reserva = ${nReserva} encargos que el modelo que propone nunca vio. Medido con ${MODELO}; con Codex o Claude hay que volver a medir.
 `;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { values } = parseArgs({
     options: {
+      bateria: { type: 'string', default: 'codigo' },
       generaciones: { type: 'string', default: '1' },
       candidatas: { type: 'string', default: '3' },
       repeticiones: { type: 'string', default: '3' },
@@ -205,7 +239,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     },
   });
   await mejorar({
-    generaciones: Number(values.generaciones), candidatas: Number(values.candidatas),
+    bateria: values.bateria, generaciones: Number(values.generaciones), candidatas: Number(values.candidatas),
     repeticiones: Number(values.repeticiones), maximoConsultas: Number(values['maximo-consultas']),
   }).catch(e => { console.error(e.message); process.exit(1); });
 }

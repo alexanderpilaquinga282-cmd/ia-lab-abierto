@@ -149,3 +149,42 @@ Remove-Item Env:NVIDIA_API_KEY
 **Límites honestos:** 6 + 6 encargos es poco; una ganadora puede deberse al azar con 3 repeticiones. Por eso cada propuesta muestra sus números contra la línea base y dice "volver a medir con Codex o Claude": lo que gana con Nemotron no necesariamente gana con otro modelo. Para que corra solo (por ejemplo cada noche) la clave tendría que guardarse en el PC; eso queda como decisión aparte de cada persona.
 
 **Pruebas:** `node --test prueba\mejorar.test.mjs` (7 pruebas con servidor falso: descarte de propuestas, criterios, confirmación en reserva, que el proponente no vea los encargos, que la clave no quede en `bucle/`, tope de consultas).
+
+## Corridas del bucle
+
+### Primera corrida del bucle (18/11/2026, 11:10 a 11:19 Bogotá, PC del autor)
+
+111 consultas, sin errores de red. Ninguna candidata ganó; la campeona sigue siendo "sin skill".
+
+| | Entrenamiento | Tokens totales | Reserva |
+|---|---|---:|---|
+| Sin skill (campeona) | 12/18 | 274 | 15/18 |
+| Candidata 1 | 0/18 | 150 % | no se midió |
+| Candidata 2 | 11/18 | 117 % | no se midió |
+| Candidata 3 | 12/18 | 125 % | no se midió |
+
+Fallas fijas de la campeona: *faltantes* (lento con rangos enormes), *csv* (resultado) y, en reserva, *intervalos*. Ninguna candidata arregló ninguna de las tres.
+
+**Lectura:** en encargos cortos la salida ya es casi solo código, así que una skill casi no puede bajar tokens; solo suma entrada (70 a 170 tokens sobre 274). Para ganar por calidad con el tope de 110 % la skill tendría que medir menos de ~27 tokens. Es la misma conclusión que con Ponytail: **en tareas cortas el ahorro está en no poner skill.** Donde una skill sí podría pagar es en tareas con entrada grande (tipo `largos`, ~26.000 tokens), donde 100 tokens de skill son menos del 1 % y lo que cuenta es la calidad. Siguiente experimento posible: el bucle sobre `largos`, con casos largos de reserva nuevos y criterios congelados antes.
+
+Conclusiones cortas: `QUE-SIRVE.md`.
+
+## Bucle en tareas largas (`--bateria largos`), desde 19/11/2026
+
+Siguiente experimento después de la corrida en tareas cortas. Mismo bucle, mismos criterios congelados (tabla de arriba), estado aparte en `bucle-largos/`.
+
+- **Entrenamiento:** los 3 casos de `casos-largos.mjs` (log con un ERROR, 300 pedidos, reporte de 400 pruebas). La base sacó 6/9: falla siempre *pedidos* (cuenta mal los devueltos).
+- **Reserva nueva** (`banco/reserva-largos.mjs`, nunca vista por el proponente): inventario CSV de 250 filas (contar bajo mínimo y mayor déficit), 800 inicios de sesión (contar fallos y usuario con más fallos), 320 lecturas de sensores en JSON (contar sobre 80 y sensor de la lectura más alta). Las tres son de contar, que es donde falla el modelo.
+- **Lo que el proponente no puede escribir:** los nombres de los casos de entrenamiento ni sus respuestas (por ejemplo "pedidos", "devueltos", "E-4583"). Así una skill no puede aprenderse el examen.
+- **Cómo puede ganar:** con entradas de miles de tokens, una skill de 100 tokens no puede bajar el total un 5 %, así que la única vía es **aprobar más** gastando ≤ 110 %. Predicción registrada antes de correr: la mayoría de candidatas empatan en 6/9; ganar exige arreglar *pedidos* sin romper los otros dos, y luego contar mejor en reserva.
+- **Costo:** 57 consultas por defecto (18 de la campeona inicial, 30 de 3 candidatas, 9 de reserva), cerca de 1,1 millones de tokens de NVIDIA y unos 7 minutos. Sin Headroom: la compresión pierde líneas y aquí importa contar.
+
+```powershell
+.\correr-bucle.ps1 --bateria largos     # pide la clave en la ventana
+```
+
+**Pruebas:** `node --test prueba\mejorar.test.mjs` suma 3 pruebas para esta batería (reserva determinista y distinta del entrenamiento, una ganadora falsa que se confirma y se guarda en su carpeta, y el filtro de palabras prohibidas).
+
+### Resultado en tareas largas (19/11/2026)
+
+Ninguna ganadora: las 3 candidatas empataron en 6/9 con el 101 % de los tokens totales, y la versión sin skill sacó 0/9 en la reserva larga de contar (esperados verificados por separado). **Conclusión:** con Nemotron sin razonamiento, el bucle no ahorra ni en tareas cortas ni en largas. Para contar hay que calcular con código y dejar que el modelo solo redacte. El bucle queda como herramienta de medición, no como fuente de ahorro.

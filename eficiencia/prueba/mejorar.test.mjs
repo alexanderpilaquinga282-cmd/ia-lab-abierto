@@ -10,6 +10,8 @@ import { casos } from '../banco/casos.mjs';
 import { casosReserva } from '../banco/reserva.mjs';
 import { verificar } from '../banco/verificar.mjs';
 import { referencias } from './referencias-reserva.mjs';
+import { casosLargos } from '../casos-largos.mjs';
+import { casosReservaLargos } from '../banco/reserva-largos.mjs';
 
 const respuestas = JSON.parse(await readFile(new URL('respuestas-codex.json', import.meta.url), 'utf8'));
 const propuestas = [
@@ -28,11 +30,19 @@ before(async () => {
     const body = JSON.parse(cuerpo);
     const sistema = body.messages.find(m => m.role === 'system')?.content ?? '';
     let texto;
-    if (sistema.startsWith('Mejoras instrucciones')) {
+    const usuario = body.messages.find(m => m.role === 'user').content;
+    const largo = [...casosLargos, ...casosReservaLargos].find(c => c.pregunta === usuario);
+    if (sistema.startsWith('Mejoras instrucciones') && sistema.includes('salidas largas')) {
+      pedidosProponente.push(body);
+      texto = '<skill>CUENTA: enumera los elementos antes de dar el total.</skill>';
+    } else if (sistema.startsWith('Mejoras instrucciones')) {
       pedidosProponente.push(body);
       texto = propuestas[(pedidosProponente.length - 1) % propuestas.length];
+    } else if (largo) {
+      // Sin la skill CUENTA, el modelo falso cuenta mal en dos casos de contar.
+      const falla = ['pedidos', 'accesos'].includes(largo.id) && !sistema.startsWith('CUENTA');
+      texto = JSON.stringify(falla ? { ...largo.esperado, [Object.keys(largo.esperado)[0]]: -1 } : largo.esperado);
     } else {
-      const usuario = body.messages.find(m => m.role === 'user').content;
       const caso = casos.find(c => c.prompt === usuario);
       texto = caso ? respuestas.find(r => r.id === caso.id).answer : referencias[casosReserva.find(c => c.prompt === usuario).id];
     }
@@ -120,4 +130,38 @@ test('respeta el máximo de consultas antes de gastar ninguna', async () => {
   const e = await mejorar({ generaciones: 5, candidatas: 5, repeticiones: 3, maximoConsultas: 150, pausaMs: 0, env: env(), log: () => {}, carpeta }).catch(e => e);
   assert.match(e.message, /máximo es 150/);
   assert.equal(pedidosProponente.length, 0);
+});
+
+test('reserva larga: casos nuevos, grandes y deterministas', async () => {
+  const otra = await import('../banco/reserva-largos.mjs?otra');
+  assert.deepEqual(otra.casosReservaLargos.map(c => c.esperado), casosReservaLargos.map(c => c.esperado));
+  const ids = new Set(casosLargos.map(c => c.id));
+  for (const c of casosReservaLargos) {
+    assert.ok(!ids.has(c.id), c.id);
+    assert.ok(c.datos.length > 4000, c.id);
+  }
+});
+
+test('bateria largos: mejora la calidad, confirma en reserva larga y guarda aparte', async () => {
+  pedidosProponente.length = 0;
+  const carpeta = await carpetaTemporal();
+  const r = await mejorar({ bateria: 'largos', generaciones: 1, candidatas: 1, repeticiones: 1, pausaMs: 0, env: env(), log: () => {}, carpeta });
+  assert.equal(r.ganadoras.length, 1);
+  assert.match(r.campeona.texto, /^CUENTA/);
+  assert.equal(r.campeona.entrenamiento.aprobadas, 3);
+  assert.equal(r.campeona.reserva.aprobadas, 3);
+  const [archivo] = await readdir(new URL('propuestas/', carpeta));
+  assert.match(await readFile(new URL('propuestas/' + archivo, carpeta), 'utf8'), /bateria: largos/);
+  const visto = JSON.stringify(pedidosProponente);
+  for (const c of [...casosLargos, ...casosReservaLargos]) {
+    assert.ok(!visto.includes(c.pregunta) && !visto.includes(c.datos.slice(0, 60)), 'el proponente vio ' + c.id);
+  }
+});
+
+test('limpiarPropuesta en largos rechaza nombres y respuestas del entrenamiento', async () => {
+  const { BATERIAS, CRITERIO } = await import('../mejorar.mjs');
+  const p = BATERIAS.largos.prohibidas;
+  assert.equal(limpiarPropuesta('<skill>Enumera y luego cuenta.</skill>', CRITERIO, p).skill, 'Enumera y luego cuenta.');
+  assert.match(limpiarPropuesta('<skill>En pedidos devueltos, cuenta</skill>', CRITERIO, p).error, /entrenamiento/);
+  assert.match(limpiarPropuesta('<skill>El código suele ser E-4583</skill>', CRITERIO, p).error, /entrenamiento/);
 });

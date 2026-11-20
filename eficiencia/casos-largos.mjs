@@ -3,7 +3,7 @@
 // siempre los mismos datos y la misma respuesta esperada.
 import { isDeepStrictEqual } from 'node:util';
 
-function generador(semilla) {
+export function generador(semilla) {
   let estado = semilla >>> 0;
   return limite => {
     estado = (Math.imul(1664525, estado) + 1013904223) >>> 0;

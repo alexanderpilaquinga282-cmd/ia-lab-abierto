@@ -10,3 +10,6 @@ eficiencia/resultados/privados/
 config/temas-privados.txt
 .codex/
 nodos/*/privado/
+eficiencia/bucle/
+eficiencia/bucle-largos/
+eficiencia/resultados/
