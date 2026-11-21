@@ -57,13 +57,15 @@ try {
 
   # 3. Pruebas del kit (solo dentro de kit\)
   Push-Location $kit
-  $t = & node --test 2>&1 | Out-String
+  # TAP fijo: el reporte por defecto cambia según la versión de Node y si hay consola.
+  $t = & node --test --test-reporter=tap 2>&1 | Out-String
+  $codigoPruebas = $LASTEXITCODE
   Pop-Location
   $pass = [regex]::Match($t, '# pass (\d+)').Groups[1].Value
   $fail = [regex]::Match($t, '# fail (\d+)').Groups[1].Value
   $skip = [regex]::Match($t, '# skipped (\d+)').Groups[1].Value
-  Anotar "3. Pruebas del kit: $pass pasan, $fail fallan, $skip omitidas" $(if ($fail -eq '0') { 'Green' } else { 'Red' })
-  if ($fail -ne '0') { ([regex]::Matches($t, '(?m)^not ok .*$') | ForEach-Object { Anotar "   $($_.Value)" 'Red' }); throw 'Hay pruebas en rojo.' }
+  Anotar "3. Pruebas del kit: $pass pasan, $fail fallan, $skip omitidas (código $codigoPruebas)" $(if ($codigoPruebas -eq 0) { 'Green' } else { 'Red' })
+  if ($codigoPruebas -ne 0) { ([regex]::Matches($t, '(?m)^not ok .*$') | ForEach-Object { Anotar "   $($_.Value)" 'Red' }); throw 'Hay pruebas en rojo.' }
 
   # 4. Medición: banco sin red y prueba en vivo del servidor
   Push-Location $kit
