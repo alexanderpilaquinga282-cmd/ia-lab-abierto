@@ -25,6 +25,22 @@ Lo hace `instalar.ps1` en la raíz del repo. A mano:
 
 Quitarlo: `kit\conectar-claude.ps1 -Quitar` y reinicia Claude. Si no aparece: `kit\diagnosticar-claude.ps1` (solo lee).
 
+## PC nuevo con Codex (un solo paso)
+Codex trabaja con su propio shell, así que la mayor parte del ahorro llega con una **regla** en
+`~\.codex\AGENTS.md` (contar/filtrar con un script y leer solo el resultado). El kit la escribe junto
+con el servidor MCP `ia_lab_ahorro` en `~\.codex\config.toml`, sin tocar nada más y con respaldo.
+
+1. Clona el repo y corre: `powershell -ExecutionPolicy Bypass -File kit\instalar-pc.ps1`
+   (instala Node LTS con winget si falta, crea `config\`, corre las pruebas, mide y conecta Codex).
+   El informe queda en `.local\instalacion.txt`, solo con números.
+2. Reinicia Codex (app o CLI). `codex mcp list` debe mostrar `ia_lab_ahorro`.
+3. Prueba en Codex: "¿Cuántos pedidos devueltos hay en `<raíz>\kit\demo\pedidos-ficticios.json` y
+   cuál es el más caro?" → **65** y **P-0090** sin leer el archivo entero.
+4. La primera vez que use `leer_con_nemotron` sale el cuadro de la clave NVIDIA: la pegas tú.
+
+Medir de nuevo cuando quieras: `node kit\probar-en-vivo.mjs` (sin red ni clave).
+Quitarlo de Codex: `node kit\config-codex.mjs %USERPROFILE%\.codex <raíz> --quitar`.
+
 ## Fronteras (todo rechazo hace ruido)
 - **Raíz** = la carpeta que contiene `kit\` (o la variable `IA_LAB_RAIZ`). Nada fuera de ella.
 - **Tuyas, fuera de Git**, en `<raíz>\config\`:
@@ -44,6 +60,8 @@ Quitarlo: `kit\conectar-claude.ps1 -Quitar` y reinicia Claude. Si no aparece: `k
 | `diagnosticar-claude.ps1` | Solo lee: config de MCP y líneas de log, con claves tapadas |
 | `ahorro.mjs` | Totales; `--nota <carpeta>` escribe una nota Markdown (pie opcional en `config\nota-pie.md`) |
 | `codigo-primero.mjs` | La estimación de arriba |
+| `config-codex.mjs` + `instalar-pc.ps1` | Conecta o quita el kit en Codex (`config.toml` + `AGENTS.md`); instalador de un paso |
+| `probar-en-vivo.mjs` | Lanza el servidor como Codex/Claude y mide el ahorro real en `demo\` (sin red) |
 | `vision\` | Banco de visión con 6 imágenes sintéticas |
 | `demo\` | Archivos ficticios para la prueba en vivo de `INSTRUCCION-CLAUDE.md` |
 | `portabilidad.test.mjs` | Falla si alguien mete una ruta personal o un proyecto privado en el kit |

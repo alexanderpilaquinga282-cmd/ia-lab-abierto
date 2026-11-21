@@ -24,3 +24,11 @@ test('contar con >= en vez de > en sensores cambia la respuesta y el verificador
   const ge = d => { const l = JSON.parse(d); return { sobre80: l.filter(x => x.valor >= 80).length + 1, sensorMaximo: 'S-00' }; };
   assert.equal(medir(c, ge, 2.5).codigoOk, false);
 });
+
+test('corre en un clon recién hecho (sin eficiencia/resultados/) y da los mismos totales', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const salida = execFileSync(process.execPath, [fileURLToPath(new URL('./codigo-primero.mjs', import.meta.url))], { encoding: 'utf8' });
+  assert.match(salida, /codigo 6\/6/);
+  assert.match(salida, /codigo-primero 9\d\.\d %/);
+});
