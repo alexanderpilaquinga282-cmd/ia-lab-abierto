@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { decidirRuta } from './ruta-codigo.js';
+import { decidirRuta, patronTemasPrivados } from './ruta-codigo.js';
 
 const caso = {
   encargo: 'Escribe una función que redondee minutos a un bloque de 15.',
@@ -68,4 +68,10 @@ test('un atributo de accesibilidad o una clave de objeto puede ser trabajo sint�
     ...caso,
     encargo: 'Agrega aria-label a un botón ficticio. Lee la clave id de un objeto.',
   }).destino, 'nvidia');
+});
+
+test('un tema privado con puntos no atrapa abc-label ni palabras que lo contienen', () => {
+  const p = patronTemasPrivados(['A.B.C.']);
+  for (const si of ['ABC', 'a.b.c.', 'A B C']) assert.ok(p.test(`x ${si} y`), si);
+  for (const no of ['abc-label', 'xabcx', 'abcd']) assert.ok(!p.test(`x ${no} y`), no);
 });

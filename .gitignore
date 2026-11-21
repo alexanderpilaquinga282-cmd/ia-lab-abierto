@@ -13,3 +13,5 @@ nodos/*/privado/
 eficiencia/bucle/
 eficiencia/bucle-largos/
 eficiencia/resultados/
+config/carpetas-prohibidas.txt
+config/nota-pie.md

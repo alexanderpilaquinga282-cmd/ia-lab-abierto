@@ -26,7 +26,7 @@ cd ia-lab-abierto
 
 1. Crea tu clave gratuita en [NVIDIA Build](https://build.nvidia.com). Es tuya: no la compartas.
 2. Abre el panel con el acceso directo que deja el instalador. La clave se pide en un campo oculto y vive solo en memoria.
-3. Escribe en `config/temas-privados.txt` lo que nunca debe ir al modelo gratuito (clientes, proyectos privados). El enrutador lo manda a Codex.
+3. Escribe en `config/temas-privados.txt` lo que nunca debe ir al modelo gratuito (clientes, proyectos privados). El enrutador lo manda a Codex. En `config/carpetas-prohibidas.txt`, las carpetas que la herramienta de Claude nunca debe leer.
 4. Opcional: para imágenes, un token de Cloudflare Workers AI (cuenta gratuita). Para Codex, tu propia sesión de ChatGPT; el instalador deja la conexión lista en `.codex/` de esta carpeta.
 
 ## Qué trae el panel
@@ -37,6 +37,14 @@ cd ia-lab-abierto
 | Código | El enrutador decide Nemotron o Codex; Codex también puede pedirle código al panel | NVIDIA + tu Codex |
 | Imágenes | Genera y edita con FLUX.2 Klein 4B | Cloudflare, tu cuenta gratuita |
 | Reels | Monta video vertical con tus imágenes, guion y storyboard, sin tokens | tu navegador |
+
+## Ahorro dentro de la app de Claude (`kit/`)
+
+Un servidor MCP para la app de escritorio de Claude. Cuando Claude tiene que trabajar con un archivo largo de tu carpeta, no lo lee entero: **cuenta o filtra con código en tu PC** (`calcular_con_codigo`) o **le pide a Nemotron que lo lea** con tu clave (`leer_con_nemotron`). La regla de cuándo usarlas llega sola a Claude al conectar el servidor.
+
+- Medido sin red: código primero −93,9 % de tokens con 6/6 respuestas exactas.
+- Tus fronteras van en `config/carpetas-prohibidas.txt` y `config/temas-privados.txt`, fuera de Git. Sin el primero el servidor no arranca.
+- El instalador ofrece conectarlo; detalles en [`kit/LEEME.md`](kit/LEEME.md) y la instrucción para pegar en Claude en [`kit/INSTRUCCION-CLAUDE.md`](kit/INSTRUCCION-CLAUDE.md).
 
 ## Sumarte como nodo
 
@@ -60,7 +68,7 @@ Ver [`docs/NODOS.md`](docs/NODOS.md). Una skill solo se promueve si gana en vari
 ## Pruebas
 
 ```powershell
-node --test "panel/*.test.mjs" "eficiencia/prueba/*.test.mjs"
+node --test "panel/*.test.mjs" "eficiencia/prueba/*.test.mjs" "kit/*.test.mjs" "kit/vision/*.test.mjs"
 ```
 
 Las pruebas usan servidores falsos: no gastan tokens ni necesitan claves. Tres pruebas del puente con Codex se saltan fuera de Windows, porque el puente solo existe ahí.

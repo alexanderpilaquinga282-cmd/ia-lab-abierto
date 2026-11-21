@@ -1,0 +1,9 @@
+# Carpetas que la herramienta de ahorro (kit/) NUNCA lee, aunque Claude se lo pida.
+# Copia este archivo como config/carpetas-prohibidas.txt (queda fuera de Git) y escribe las tuyas,
+# una ruta absoluta por línea. Acepta ~ (tu carpeta de usuario) y variables como %APPDATA%.
+# También bloquea enlaces que apunten adentro. Sin este archivo el servidor no arranca.
+# Ejemplos:
+~\.ssh
+%APPDATA%\Microsoft\Credentials
+# ~\Documents\MiBovedaPrivada
+# D:\Clientes

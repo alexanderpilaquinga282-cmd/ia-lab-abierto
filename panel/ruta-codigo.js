@@ -9,7 +9,7 @@ const flexible = tema => escapar(tema.trim()).replace(/(\\\.|\s|-|_)+/g, '[\\s._
 
 export function patronTemasPrivados(temas = []) {
   const limpios = temas.map(t => String(t).trim()).filter(t => t.length >= 2);
-  return limpios.length ? new RegExp('(?<![\\w])(?:' + limpios.map(flexible).join('|') + ')(?![\\w])', 'i') : null;
+  return limpios.length ? new RegExp('(?<![\\w-])(?:' + limpios.map(flexible).join('|') + ')(?![\\w-])', 'i') : null;
 }
 
 export function decidirRuta(entradaDeclarada, { temasPrivados = [] } = {}) {
