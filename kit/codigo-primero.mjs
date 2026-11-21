@@ -9,12 +9,15 @@
 //                    filtro de pocas líneas, el filtro corre localmente y el pagado lee solo
 //                    su salida (LIA5). Exactitud medida aquí, con el verificador del banco.
 // Tokens: se estiman con la razón caracteres/token calibrada con las corridas reales de la base.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { casosLargos, verificarLargo } from '../eficiencia/casos-largos.mjs';
 import { casosReservaLargos } from '../eficiencia/banco/reserva-largos.mjs';
 
 const MUESTRA = 1500;
+// Calibración de la corrida base del 18/11/2026 (eficiencia/resultados/ no viaja en Git):
+// se usa cuando el JSON no está, como en un clon recién hecho.
+export const CPT_CALIBRADO = 1.548;
 
 // Filtros escritos a partir de la pregunta y la muestra (como los escribiría el modelo).
 export const filtros = {
@@ -49,7 +52,9 @@ export function medir(caso, filtro, cpt) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const cpt = calibrar(fileURLToPath(new URL('../eficiencia/resultados/2026-11-18-04-54-base.json', import.meta.url)), casosLargos);
+  const rutaBase = fileURLToPath(new URL('../eficiencia/resultados/2026-11-18-04-54-base.json', import.meta.url));
+  const cpt = existsSync(rutaBase) ? calibrar(rutaBase, casosLargos) : CPT_CALIBRADO;
+  if (!existsSync(rutaBase)) console.log('(sin eficiencia/resultados/: uso la calibración guardada del 18/11/2026)');
   const filas = [...casosLargos, ...casosReservaLargos].map(c => ({ ...medir(c, filtros[c.id], cpt), nemoOk: nemotronCrudo[c.id] }));
   console.log(`caracteres por token (calibrado): ${cpt.toFixed(3)}`);
   console.log('caso         base   nemo  codigo  nemo-exact  codigo-exact');
